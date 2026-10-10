@@ -37,6 +37,7 @@ FILES: list[tuple[str, str]] = [
     (f"{GREEKLIT}/tlg0007/tlg004/tlg0007.tlg004.perseus-eng2.xml", "translations/plutarch-lycurgus-perrin.xml"),
     (f"{GREEKLIT}/tlg0007/tlg015/tlg0007.tlg015.perseus-eng2.xml", "translations/plutarch-alcibiades-perrin.xml"),
     (f"{GREEKLIT}/tlg0062/tlg068/tlg0062.tlg068.perseus-eng4.xml", "translations/lucian-dialogi-deorum-fowler.xml"),
+    (f"{GREEKLIT}/tlg0062/tlg068/tlg0062.tlg068.perseus-eng3.xml", "translations/lucian-dialogi-deorum-macleod.xml"),
     (f"{GREEKLIT}/tlg0062/tlg066/tlg0062.tlg066.perseus-eng4.xml", "translations/lucian-dialogi-mortuorum-fowler.xml"),
     (f"{RAW}/thiagobodruk/bible/master/json/en_kjv.json", "translations/kjv.json"),
     # --- lexicon --------------------------------------------------------------
