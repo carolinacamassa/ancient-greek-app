@@ -4,13 +4,11 @@ no openly licensed aligned translation (currently Aesop).
 Providers (stdlib only, no SDK needed):
   OpenRouter  OPENROUTER_API_KEY set   -> https://openrouter.ai/api/v1/chat/completions
   Anthropic   ANTHROPIC_API_KEY set    -> https://api.anthropic.com/v1/messages
-
-The provider is picked from whichever key is set, or forced with --provider.
-With --provider openrouter and no key in the environment, requests go out
-without an Authorization header, for setups where an egress proxy injects it.
+  No key variable but a proxy that attaches it (a cloud environment "network
+  secret"): pass --provider openrouter|anthropic and no header is sent.
 
 Usage:
-    python3 pipeline/translate.py aesop [--provider openrouter|anthropic] [--lang en|it] [--limit N] [--model ID] [--list-models]
+    python3 pipeline/translate.py aesop [--lang en|it] [--limit N] [--model ID] [--list-models]
 
 Writes pipeline/translations/<text>.<lang>.json ({sentence_id: translation});
 build.py merges that file into the text's passages on the next build, keyed
@@ -43,22 +41,21 @@ SYSTEM = (
 LANG = {"en": "English", "it": "Italian"}
 
 
-def provider(forced: str | None = None) -> tuple[str, str]:
+def provider(forced: str | None) -> tuple[str, str]:
+    """Return (provider, key). An empty key means "send no Authorization
+    header": a proxy in front of the session attaches the credential itself
+    (Claude Code cloud environments call this a network secret)."""
     for env, name in (("OPENROUTER_API_KEY", "openrouter"), ("ANTHROPIC_API_KEY", "anthropic")):
         key = os.environ.get(env)
         if key and forced in (None, name):
             return name, key
-    # tolerate other spellings of the OpenRouter variable
     for env, key in os.environ.items():
         if "OPENROUTER" in env.upper() and key.startswith("sk-") and forced in (None, "openrouter"):
             return "openrouter", key
-    if forced == "openrouter":
-        return "openrouter", ""  # a proxy may add the Authorization header itself
-    sys.exit("set OPENROUTER_API_KEY or ANTHROPIC_API_KEY")
-
-
-def auth(key: str) -> dict:
-    return {"Authorization": f"Bearer {key}"} if key else {}
+    if forced:
+        return forced, ""
+    sys.exit("set OPENROUTER_API_KEY or ANTHROPIC_API_KEY, or pass --provider openrouter "
+             "when a proxy attaches the key for you")
 
 
 def post(url: str, headers: dict, body: dict, retries: int = 4) -> dict:
@@ -87,14 +84,14 @@ def post(url: str, headers: dict, body: dict, retries: int = 4) -> dict:
 def complete(prov: str, key: str, model: str, system: str, user: str) -> str:
     if prov == "openrouter":
         r = post("https://openrouter.ai/api/v1/chat/completions",
-                 {**auth(key), "HTTP-Referer": "https://github.com/carolinacamassa/ancient-greek-app",
+                 {**auth_header(prov, key), "HTTP-Referer": "https://github.com/carolinacamassa/ancient-greek-app",
                   "X-Title": "Greek Reader pipeline"},
                  {"model": model, "max_tokens": 4000, "temperature": 0.2,
                   "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]})
         choice = r["choices"][0]
         return choice["message"]["content"] or ""
     r = post("https://api.anthropic.com/v1/messages",
-             {"x-api-key": key, "anthropic-version": "2023-06-01"},
+             {**auth_header(prov, key), "anthropic-version": "2023-06-01"},
              {"model": model, "max_tokens": 4000, "system": system,
               "messages": [{"role": "user", "content": user}]})
     if r.get("stop_reason") == "refusal":
@@ -102,8 +99,14 @@ def complete(prov: str, key: str, model: str, system: str, user: str) -> str:
     return "".join(b.get("text", "") for b in r["content"] if b.get("type") == "text")
 
 
+def auth_header(prov: str, key: str) -> dict:
+    if not key:
+        return {}
+    return {"Authorization": f"Bearer {key}"} if prov == "openrouter" else {"x-api-key": key}
+
+
 def list_models(key: str) -> None:
-    req = urllib.request.Request("https://openrouter.ai/api/v1/models", headers=auth(key))
+    req = urllib.request.Request("https://openrouter.ai/api/v1/models", headers=auth_header("openrouter", key))
     with urllib.request.urlopen(req, timeout=60) as r:
         data = json.load(r)["data"]
     for m in sorted(data, key=lambda m: m["id"]):
@@ -119,8 +122,9 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--batch", type=int, default=12, help="sentences per request")
     ap.add_argument("--model", default=None)
-    ap.add_argument("--provider", default=None, choices=list(DEFAULT_MODEL))
     ap.add_argument("--list-models", action="store_true")
+    ap.add_argument("--provider", choices=["openrouter", "anthropic"], default=None,
+                    help="needed only when no key variable is set and a proxy attaches the credential")
     args = ap.parse_args(argv)
 
     prov, key = provider(args.provider)

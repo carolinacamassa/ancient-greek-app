@@ -11,6 +11,8 @@ Aesop has none: the public-domain English Aesops (Townsend, Jacobs) follow diffe
 ```sh
 export OPENROUTER_API_KEY=…        # or ANTHROPIC_API_KEY
 python3 pipeline/translate.py aesop --list-models   # OpenRouter only: models and prices
+# in a Claude Code cloud environment with the key stored as a network secret:
+# python3 pipeline/translate.py aesop --provider openrouter --model anthropic/claude-opus-4.5
 python3 pipeline/translate.py aesop            # English
 python3 pipeline/translate.py aesop --lang it  # Italian
 python3 pipeline/build.py
