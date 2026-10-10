@@ -286,11 +286,9 @@ def _merge_sentence_translations(cfg, doc: TextDoc):
                     p.translations[s.id] = data[s.id]
                     n += 1
         if n:
-            doc.translation = {"name": f"Generated with Claude ({MODEL_NOTE})", "license": "generated", "url": ""}
+            doc.translation = {"name": "Machine translation, sentence by sentence (pipeline/translate.py)", "license": "generated", "url": "https://github.com/carolinacamassa/ancient-greek-app/blob/main/docs/TRANSLATIONS.md"}
             print(f"    merged {n} sentence translations from {path.name}")
 
-
-MODEL_NOTE = "see pipeline/translate.py"
 
 
 def _natural(s: str):

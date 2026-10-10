@@ -1,36 +1,105 @@
-"""Generate sentence-by-sentence translations with Claude for texts that have
+"""Generate sentence-by-sentence translations with an LLM for texts that have
 no openly licensed aligned translation (currently Aesop).
 
+Providers (stdlib only, no SDK needed):
+  OpenRouter  OPENROUTER_API_KEY set   -> https://openrouter.ai/api/v1/chat/completions
+  Anthropic   ANTHROPIC_API_KEY set    -> https://api.anthropic.com/v1/messages
+
 Usage:
-    export ANTHROPIC_API_KEY=...        # or `ant auth login`
-    pip install anthropic
-    python3 pipeline/translate.py aesop  [--limit N] [--lang en|it]
+    python3 pipeline/translate.py aesop [--lang en|it] [--limit N] [--model ID] [--list-models]
 
 Writes pipeline/translations/<text>.<lang>.json ({sentence_id: translation});
 build.py merges that file into the text's passages on the next build, keyed
-by sentence ref, so each sentence gets its own translation rather than a
+by sentence id, so each sentence gets its own translation rather than a
 section-level one. Re-running only translates sentences not yet in the file.
 """
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
+import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 from common import OUT, ROOT
 
 TRANSLATIONS = ROOT / "pipeline" / "translations"
-MODEL = "claude-opus-5-5"
+DEFAULT_MODEL = {"openrouter": "anthropic/claude-sonnet-4.5", "anthropic": "claude-opus-5-5"}
 
 SYSTEM = (
     "You translate Ancient Greek for a learner who reads the original with glosses and checks a "
     "translation afterwards. Translate each numbered sentence on its own line, keeping the sentence "
     "boundaries exactly as given, in plain {lang}. Stay close to the Greek word order and structure "
-    "where {lang} allows it, so the learner can map clauses back onto the original; do not paraphrase "
-    "or explain. Output only the numbered translations."
+    "where {lang} allows it, so the learner can map clauses back onto the original; do not paraphrase, "
+    "explain or add notes. Output only the numbered translations, one per line."
 )
 LANG = {"en": "English", "it": "Italian"}
+
+
+def provider() -> tuple[str, str]:
+    for env, name in (("OPENROUTER_API_KEY", "openrouter"), ("ANTHROPIC_API_KEY", "anthropic")):
+        key = os.environ.get(env)
+        if key:
+            return name, key
+    # tolerate other spellings of the OpenRouter variable
+    for env, key in os.environ.items():
+        if "OPENROUTER" in env.upper() and key.startswith("sk-"):
+            return "openrouter", key
+    sys.exit("set OPENROUTER_API_KEY or ANTHROPIC_API_KEY")
+
+
+def post(url: str, headers: dict, body: dict, retries: int = 4) -> dict:
+    data = json.dumps(body).encode("utf-8")
+    for attempt in range(retries):
+        req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json", **headers})
+        try:
+            with urllib.request.urlopen(req, timeout=180) as r:
+                return json.load(r)
+        except urllib.error.HTTPError as e:
+            msg = e.read().decode("utf-8", "replace")[:300]
+            if e.code in (408, 409, 429, 500, 502, 503, 529) and attempt < retries - 1:
+                wait = 2 ** (attempt + 1)
+                print(f"  HTTP {e.code}, retrying in {wait}s: {msg}", file=sys.stderr)
+                time.sleep(wait)
+                continue
+            sys.exit(f"HTTP {e.code}: {msg}")
+        except (urllib.error.URLError, TimeoutError) as e:
+            if attempt < retries - 1:
+                time.sleep(2 ** (attempt + 1))
+                continue
+            sys.exit(f"network error: {e}")
+    raise RuntimeError("unreachable")
+
+
+def complete(prov: str, key: str, model: str, system: str, user: str) -> str:
+    if prov == "openrouter":
+        r = post("https://openrouter.ai/api/v1/chat/completions",
+                 {"Authorization": f"Bearer {key}", "HTTP-Referer": "https://github.com/carolinacamassa/ancient-greek-app",
+                  "X-Title": "Greek Reader pipeline"},
+                 {"model": model, "max_tokens": 4000, "temperature": 0.2,
+                  "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]})
+        choice = r["choices"][0]
+        return choice["message"]["content"] or ""
+    r = post("https://api.anthropic.com/v1/messages",
+             {"x-api-key": key, "anthropic-version": "2023-06-01"},
+             {"model": model, "max_tokens": 4000, "system": system,
+              "messages": [{"role": "user", "content": user}]})
+    if r.get("stop_reason") == "refusal":
+        return ""
+    return "".join(b.get("text", "") for b in r["content"] if b.get("type") == "text")
+
+
+def list_models(key: str) -> None:
+    req = urllib.request.Request("https://openrouter.ai/api/v1/models", headers={"Authorization": f"Bearer {key}"})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        data = json.load(r)["data"]
+    for m in sorted(data, key=lambda m: m["id"]):
+        if any(k in m["id"] for k in ("anthropic/", "openai/gpt-5", "google/gemini", "deepseek/", "qwen/qwen3", "x-ai/grok")):
+            p = m.get("pricing", {})
+            print(f"{m['id']:50s} in ${float(p.get('prompt', 0))*1e6:7.2f}/M  out ${float(p.get('completion', 0))*1e6:7.2f}/M")
 
 
 def main(argv: list[str]) -> int:
@@ -39,63 +108,48 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--lang", default="en", choices=list(LANG))
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--batch", type=int, default=12, help="sentences per request")
+    ap.add_argument("--model", default=None)
+    ap.add_argument("--list-models", action="store_true")
     args = ap.parse_args(argv)
 
-    try:
-        import anthropic
-    except ImportError:
-        print("pip install anthropic", file=sys.stderr)
-        return 1
+    prov, key = provider()
+    if args.list_models:
+        list_models(key)
+        return 0
+    model = args.model or DEFAULT_MODEL[prov]
+    print(f"provider {prov}, model {model}")
 
     doc = json.loads((OUT / "texts" / f"{args.text}.json").read_text(encoding="utf-8"))
     out_path = TRANSLATIONS / f"{args.text}.{args.lang}.json"
     done: dict[str, str] = json.loads(out_path.read_text(encoding="utf-8")) if out_path.exists() else {}
 
-    todo = []
-    for p in doc["passages"]:
-        for s in p["s"]:
-            if s["id"] not in done:
-                todo.append((p, s))
+    todo = [(p, s) for p in doc["passages"] for s in p["s"] if s["id"] not in done]
     if args.limit:
         todo = todo[: args.limit]
     print(f"{len(done)} done, {len(todo)} to translate")
 
-    client = anthropic.Anthropic()
     system = SYSTEM.format(lang=LANG[args.lang])
     for i in range(0, len(todo), args.batch):
         batch = todo[i : i + args.batch]
-        lines = []
-        for n, (p, s) in enumerate(batch, 1):
-            greek = " ".join(t["f"] for t in s["t"])
-            lines.append(f"{n}. {greek}")
+        lines = [f"{n}. " + " ".join(t["f"] for t in s["t"]) for n, (p, s) in enumerate(batch, 1)]
         context = f"From {doc['author']}, {doc['title']}, {batch[0][0]['title']}."
-        response = client.beta.messages.create(
-            model=MODEL,
-            max_tokens=4000,
-            betas=["server-side-fallback-2026-07-01"],
-            fallbacks="default",
-            system=system,
-            messages=[{"role": "user", "content": context + "\n\n" + "\n".join(lines)}],
-        )
-        if response.stop_reason == "refusal":
-            print("refused; skipping batch", file=sys.stderr)
-            continue
-        text = "".join(b.text for b in response.content if b.type == "text")
+        text = complete(prov, key, model, system, context + "\n\n" + "\n".join(lines))
         got: dict[int, str] = {}
         for line in text.splitlines():
-            line = line.strip()
-            if not line:
-                continue
+            line = line.strip().lstrip("*").strip()
             num, _, rest = line.partition(".")
-            if num.isdigit():
+            if num.strip().isdigit() and rest.strip():
                 got[int(num)] = rest.strip()
+        missing = [n for n in range(1, len(batch) + 1) if n not in got]
+        if missing:
+            print(f"  batch at {i}: no translation for items {missing}", file=sys.stderr)
         for n, (p, s) in enumerate(batch, 1):
             if n in got:
                 done[s["id"]] = got[n]
         TRANSLATIONS.mkdir(exist_ok=True)
         out_path.write_text(json.dumps(done, ensure_ascii=False, indent=1), encoding="utf-8")
         print(f"  {min(i + args.batch, len(todo))}/{len(todo)}")
-    print(f"wrote {out_path}; run build.py to merge")
+    print(f"wrote {out_path} ({len(done)} sentences); run build.py to merge")
     return 0
 
 

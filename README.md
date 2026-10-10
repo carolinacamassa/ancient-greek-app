@@ -56,7 +56,7 @@ The generated `app/public/data/` is committed, so the app runs without the pipel
 
 ## What is not done
 
-- **Aesop has no aligned translation.** There is no openly licensed English or Italian translation of Chambry's numbering. `pipeline/translate.py` generates sentence-level translations with Claude into `pipeline/translations/`, and the build merges them; it needs an API key and has not been run.
+- **Aesop has no aligned translation.** There is no openly licensed English or Italian translation of Chambry's numbering. `pipeline/translate.py` generates sentence-level translations with an LLM (OpenRouter or Anthropic key) into `pipeline/translations/`, and the build merges them.
 - **Glosses are English only.** The only open short-definition lexicon is Logeion's English one. The data model and the translation script take a language parameter; an Italian gloss list would slot in.
 - **The LLM structure check for automatically parsed texts** (the design's fallback for texts without a treebank) is not built; Lucian uses the GLAUx automatic parse as is, marked in the UI.
 - **Dialogues of the Dead 14** has a speaker mislabelled in the source (φιλόσοφος for Philip).

@@ -6,17 +6,17 @@ Aesop has none: the public-domain English Aesops (Townsend, Jacobs) follow diffe
 
 ## Generating sentence-level translations
 
-`pipeline/translate.py` asks Claude (`claude-opus-5-5`) for a translation of each sentence of a text, in batches, and saves them to `pipeline/translations/<text>.<lang>.json` keyed by sentence id. The next `build.py` merges them into the text's passages under `tr[sentence.id]`, which the app prefers over the section-level `tr[sentence.ref]`.
+`pipeline/translate.py` asks an LLM (OpenRouter with `OPENROUTER_API_KEY`, or the Anthropic API with `ANTHROPIC_API_KEY`; stdlib only, no SDK) for a translation of each sentence of a text, in batches, and saves them to `pipeline/translations/<text>.<lang>.json` keyed by sentence id. The next `build.py` merges them into the text's passages under `tr[sentence.id]`, which the app prefers over the section-level `tr[sentence.ref]`.
 
 ```sh
-pip install anthropic
-export ANTHROPIC_API_KEY=…         # or `ant auth login`
+export OPENROUTER_API_KEY=…        # or ANTHROPIC_API_KEY
+python3 pipeline/translate.py aesop --list-models   # OpenRouter only: models and prices
 python3 pipeline/translate.py aesop            # English
 python3 pipeline/translate.py aesop --lang it  # Italian
 python3 pipeline/build.py
 ```
 
-The script is resumable (it skips sentences already in the file) and takes `--limit N` for a trial run. The prompt asks for a translation that keeps the Greek clause order where the target language allows it, so the learner can map the two. Server-side refusal fallback (`fallbacks: "default"`) is on, so a declined batch is retried on another model inside the same call.
+The script is resumable (it skips sentences already in the file) and takes `--limit N` for a trial run. The prompt asks for a translation that keeps the Greek clause order where the target language allows it, so the learner can map the two. `--model` picks the model; the default is a Sonnet-class Claude on OpenRouter.
 
 The same script works for any text, which is how to get sentence-level translations for the others, or Italian for all of them. The generated file is marked as generated in the text's `translation` field.
 
