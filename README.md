@@ -1,0 +1,62 @@
+# Greek Reader
+
+A reader for authentic Ancient Greek texts, for someone who already has Latin. Heavy support at the start (an interlinear gloss under almost every word) that fades on evidence as you learn; grammar notes and quizzes placed where they come up in the reading rather than in a separate course. No simplified or graded content: you read Aesop, Lucian and Xenophon from day one, and the app computes how much of Plato's *Euthyphro* you could already read.
+
+The design is in [docs/DESIGN.md](docs/DESIGN.md). What is built, and how far it goes, is below.
+
+## What is here
+
+```
+pipeline/   Python, stdlib only. Downloads the open treebanks, lexicon and translations,
+            aligns them, and writes the corpus JSON the app reads.
+app/        Vite + React + TypeScript. The reader, the learner model, quizzes, grammar notes.
+docs/       Design, data format, sources and licences, translations.
+```
+
+Corpus in the app today (all openly licensed, see [docs/SOURCES.md](docs/SOURCES.md)):
+
+| Stage | Text | Syntax | Translation |
+|---|---|---|---|
+| 1 | Aesop, *Fables* 1–53 (Chambry) | hand-annotated, with contextual word glosses | none yet, see docs/TRANSLATIONS.md |
+| 1 | Lucian, *Dialogues of the Gods* (25) | automatic parse | Fowler 1905, Macleod 1961 for the ones Fowler skipped |
+| 1 | Lucian, *Dialogues of the Dead* (30) | automatic parse | Fowler 1905 |
+| 1 | Xenophon, *Anabasis* 1 | hand-annotated (Gorman) | Brownson 1922 |
+| 1, optional | *Gospel of John* | hand-annotated (PROIEL) | KJV, by verse |
+| 2 | Plutarch, *Lycurgus* and *Alcibiades* | hand-annotated | Perrin 1914–16 |
+| 3 | Plato, *Euthyphro* | hand-annotated | Fowler, aligned to Stephanus sections |
+
+About 73,000 words (punctuation excluded) and 6,400 lemmas, each word with lemma, full morphological tag, dependency head and relation.
+
+## Running it
+
+```sh
+# 1. build the corpus (needs network the first time, ~47 MB of sources)
+python3 pipeline/fetch.py
+python3 pipeline/build.py          # writes app/public/data/
+
+# 2. run the app
+cd app
+npm install
+npm run dev                        # http://localhost:5173
+```
+
+`npm run build` produces a static site in `app/dist/` that works from any path (GitHub Pages, a folder on a phone). All learner data lives in the browser's localStorage; Progress has export and import.
+
+The generated `app/public/data/` is committed, so the app runs without the pipeline.
+
+## How the reader works
+
+- **Interlinear glosses.** Under each word, a short English gloss: the Perseus annotators' contextual gloss for Aesop, the Logeion short definition for everything else. A gloss is hidden once the learner model thinks you know the word.
+- **Fading on evidence.** Reading a passage without tapping a word adds one point of strength to its lemma (once per passage). Tapping a hidden gloss takes two away. A quiz answer adds or removes two. Known means four points. Missing a parse quiz brings glosses back on all forms of that pattern (say, aorist passives) for a week.
+- **Sentence structure.** The ¶ button before each sentence lists its clauses: main verbs, subordinate clauses with the word that introduces them, participles with the noun they agree with and the verb they depend on, infinitives with their accusative subjects. This comes from the treebank's dependency tree, hand-annotated for most texts and automatic for Lucian.
+- **Translation one tap away**, section by section (Stephanus section, chapter section, verse), after you have made your own attempt.
+- **Grammar notes in the reading.** Thirty-one notes, each tied to a construction detector (genitive absolute, articular infinitive, μέν … δέ, the optative, and so on). When the count of a construction in what you have read crosses the note's threshold, the note appears under the sentence that crossed it, with that sentence as the example. All notes are also in the Grammar tab.
+- **Quiz after each passage**, built from its sentences: parse this form (distractors are real homograph analyses from the text plus near misses), what does this participle agree with, what does this relative pronoun refer to, cloze on the words you tapped (returning on a spaced schedule), and sometimes translate this sentence. Translation items are graded by Claude if you give the app an API key in Progress, otherwise you compare with the reference and judge yourself.
+- **Progress** shows words known, the share of each text you can read, reviews due and which patterns are being re-glossed.
+
+## What is not done
+
+- **Aesop has no aligned translation.** There is no openly licensed English or Italian translation of Chambry's numbering. `pipeline/translate.py` generates sentence-level translations with Claude into `pipeline/translations/`, and the build merges them; it needs an API key and has not been run.
+- **Glosses are English only.** The only open short-definition lexicon is Logeion's English one. The data model and the translation script take a language parameter; an Italian gloss list would slot in.
+- **The LLM structure check for automatically parsed texts** (the design's fallback for texts without a treebank) is not built; Lucian uses the GLAUx automatic parse as is, marked in the UI.
+- **Dialogues of the Dead 14** has a speaker mislabelled in the source (φιλόσοφος for Philip).

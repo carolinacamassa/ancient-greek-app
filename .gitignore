@@ -1,0 +1,12 @@
+# pipeline inputs are downloaded by pipeline/fetch.py
+pipeline/sources/
+pipeline/__pycache__/
+*.pyc
+
+# app
+app/node_modules/
+app/dist/
+app/.vite/
+
+.DS_Store
+.env
