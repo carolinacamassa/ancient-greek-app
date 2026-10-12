@@ -29,7 +29,7 @@ from pathlib import Path
 import numpy as np
 
 from common import OUT, SOURCES, ROOT, is_punct
-from greek_ipa import word_to_ipa, PUNCT
+from greek_ipa import word_to_ipa, to_ipa, PUNCT
 
 AUDIO = ROOT / "app" / "public" / "audio"
 VOICE = SOURCES / "voices" / "de-thorsten-low.onnx"
@@ -153,14 +153,46 @@ def build_text(text_id: str, speed: float, force: bool) -> None:
     print(f"{text_id}: {size/1e6:.1f} MB of audio in {time.time()-t_start:.0f}s", flush=True)
 
 
+def build_alphabet(speed: float) -> None:
+    """Letter names and example words for the alphabet page, read from
+    app/src/content/alphabet.ts (ids, greekName, example)."""
+    src = (ROOT / "app" / "src" / "content" / "alphabet.ts").read_text(encoding="utf-8")
+    entries = re.findall(r"\{ id: '([^']+)'.*?(?:greekName: '([^']+)'.*?)?example: '([^']+)'", src, re.S)
+    sess, pmap, rate = load_voice()
+    AUDIO.mkdir(parents=True, exist_ok=True)
+    gap = np.zeros(int(rate * 0.4), dtype=np.float32)
+    parts: list[np.ndarray] = []
+    index: dict[str, dict] = {}
+    pos_ms = 0.0
+    def add(key: str, text: str) -> None:
+        nonlocal pos_ms
+        ipa = to_ipa(text)
+        audio = synth(sess, pmap, ipa, speed)
+        dur = len(audio) / rate * 1000
+        index[key] = {"t": round(pos_ms), "d": round(dur)}
+        parts.append(audio); parts.append(gap)
+        pos_ms += dur + 400
+    for id_, greek_name, example in entries:
+        if greek_name:
+            add(f"{id_}.name", greek_name)
+        add(f"{id_}.ex", example)
+    (AUDIO / "alphabet.mp3").write_bytes(encode_mp3(np.concatenate(parts), rate))
+    (AUDIO / "alphabet.json").write_text(json.dumps(index, separators=(",", ":")), encoding="utf-8")
+    print(f"alphabet: {len(index)} clips, {pos_ms/1000:.0f}s, {(AUDIO / 'alphabet.mp3').stat().st_size//1024} KB")
+
+
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("texts", nargs="*")
     ap.add_argument("--speed", type=float, default=1.35, help="Piper length scale; higher is slower")
     ap.add_argument("--force", action="store_true")
+    ap.add_argument("--alphabet", action="store_true", help="only the alphabet page clips")
     a = ap.parse_args(argv)
     if not VOICE.exists():
         sys.exit(f"voice missing: {VOICE} (run fetch.py)")
+    if a.alphabet:
+        build_alphabet(a.speed)
+        return 0
     ids = a.texts or [p.stem for p in sorted((OUT / "texts").glob("*.json"))]
     for t in ids:
         print(t, flush=True)

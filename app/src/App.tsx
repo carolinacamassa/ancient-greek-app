@@ -6,10 +6,11 @@ import { Reader } from './views/Reader';
 import { Quiz } from './views/Quiz';
 import { Grammar } from './views/Grammar';
 import { Progress } from './views/Progress';
+import { Alphabet } from './views/Alphabet';
 
 export default function App() {
   const route = useRoute();
-  const tab = route.name === 'grammar' ? 'grammar' : route.name === 'progress' ? 'progress' : 'library';
+  const tab = route.name === 'grammar' || route.name === 'alphabet' ? 'grammar' : route.name === 'progress' ? 'progress' : 'library';
   return (
     <DataProvider>
       <div className="app">
@@ -20,6 +21,7 @@ export default function App() {
           {route.name === 'quiz' && <Quiz key={`${route.textId}/${route.passage}`} textId={route.textId} passage={route.passage} />}
           {route.name === 'grammar' && <Grammar noteId={route.noteId} />}
           {route.name === 'progress' && <Progress />}
+          {route.name === 'alphabet' && <Alphabet />}
         </main>
         <nav className="tabs">
           <a className={tab === 'library' ? 'on' : ''} href={href({ name: 'library' })}>Read</a>

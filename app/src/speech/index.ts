@@ -110,6 +110,39 @@ async function speakRecorded(req: SpeakRequest): Promise<Handle | null> {
   return { stop: finish };
 }
 
+/** Play a clip from a recorded file (used by the alphabet page). */
+export async function playClip(file: string, t: number, d: number, rate = 1, onEnd?: () => void): Promise<Handle> {
+  const a = getPlayer();
+  const src = assetUrl(`audio/${file}`);
+  if (a.src !== src) { a.src = src; a.load(); }
+  if (a.readyState < 1) {
+    await new Promise<void>((resolve, reject) => {
+      const ok = () => { cleanup(); resolve(); };
+      const bad = () => { cleanup(); reject(new Error('audio file could not be loaded')); };
+      const cleanup = () => { a.removeEventListener('loadedmetadata', ok); a.removeEventListener('error', bad); };
+      a.addEventListener('loadedmetadata', ok);
+      a.addEventListener('error', bad);
+    });
+  }
+  a.playbackRate = Math.min(1.5, Math.max(0.5, rate));
+  (a as HTMLAudioElement & { preservesPitch?: boolean }).preservesPitch = true;
+  a.currentTime = t / 1000;
+  let stopped = false;
+  let timer = 0;
+  const finish = () => { if (stopped) return; stopped = true; clearTimeout(timer); a.pause(); onEnd?.(); };
+  await a.play();
+  const endAt = (t + d) / 1000;
+  const tick = () => { if (stopped) return; if (a.currentTime >= endAt - 0.02 || a.ended) { finish(); return; } timer = window.setTimeout(tick, 50); };
+  tick();
+  return { stop: finish };
+}
+
+const clipIndexCache = new Map<string, Promise<Record<string, { t: number; d: number }> | null>>();
+export function loadClipIndex(name: string) {
+  if (!clipIndexCache.has(name)) clipIndexCache.set(name, fetch(assetUrl(`audio/${name}.json`)).then((r) => (r.ok ? r.json() : null)).catch(() => null));
+  return clipIndexCache.get(name)!;
+}
+
 // ---------------------------------------------------------------- system voice
 
 export function systemGreekVoice(): SpeechSynthesisVoice | null {

@@ -28,6 +28,10 @@ export function Library() {
           A word counts as known once you have read it several times without tapping it, or answered a quiz on it. Tapping a gloss brings it back.
         </p>
       </div>
+      <a className="card clickable" href={href({ name: 'alphabet' })} style={{ display: 'block', color: 'inherit' }}>
+        <h3>Alphabet and pronunciation</h3>
+        <p className="muted small" style={{ margin: '4px 0 0' }}>The letters, the diphthongs, the breathings and accents, each with a recording. Ten minutes before the first fable.</p>
+      </a>
       {[1, 2, 3].map((stage) => (
         <section key={stage}>
           <h2>{STAGES[stage].title}</h2>

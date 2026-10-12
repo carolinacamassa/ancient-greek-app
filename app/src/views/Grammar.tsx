@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { NOTES } from '../content/grammar';
 import { useLearner } from '../learner/model';
+import { href } from '../router';
 
 export function Grammar({ noteId }: { noteId?: string }) {
   const st = useLearner();
@@ -16,6 +17,7 @@ export function Grammar({ noteId }: { noteId?: string }) {
       <p className="muted">
         Every note here appears in the reader at the point where its construction has come up often enough to matter. You can also read ahead: nothing is locked, the order below only reflects what you have met.
       </p>
+      <p><a className="btn" href={href({ name: 'alphabet' })}>Alphabet and pronunciation ›</a></p>
       {unlocked.length > 0 && <h2>Met in your reading</h2>}
       {unlocked.map((n) => <Note key={n.id} id={n.id} open={n.id === noteId} count={st.constructionCounts[n.detector] ?? 0} />)}
       {locked.length > 0 && <h2>{unlocked.length ? 'Not yet met' : 'All notes'}</h2>}

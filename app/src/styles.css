@@ -138,3 +138,9 @@ label.field > * { margin-top: 4px; }
 
 details summary { cursor: pointer; }
 .hidden { display: none; }
+
+/* alphabet */
+.alphabet .glyph { font-family: var(--greek); font-size: 1.9rem; line-height: 1; min-width: 3.2em; color: var(--accent); }
+.alphabet .card.letter { padding: 10px 14px; }
+.badge.latin { text-transform: none; font-size: 0.85rem; letter-spacing: 0; font-family: var(--greek); }
+.alphabet .btn .greek { font-size: 1.05rem; }
