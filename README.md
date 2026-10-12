@@ -52,6 +52,7 @@ The generated `app/public/data/` is committed, so the app runs without the pipel
 - **Translation one tap away**, section by section (Stephanus section, chapter section, verse), after you have made your own attempt.
 - **Grammar notes in the reading.** Thirty-one notes, each tied to a construction detector (genitive absolute, articular infinitive, μέν … δέ, the optative, and so on). When the count of a construction in what you have read crosses the note's threshold, the note appears under the sentence that crossed it, with that sentence as the example. All notes are also in the Grammar tab.
 - **Quiz after each passage**, built from its sentences: parse this form (distractors are real homograph analyses from the text plus near misses), what does this participle agree with, what does this relative pronoun refer to, cloze on the words you tapped (returning on a spaced schedule), and sometimes translate this sentence. Translation items are graded by Claude if you give the app an API key in Progress, otherwise you compare with the reference and judge yourself.
+- **Read aloud, per sentence.** The ▶ button before each sentence speaks it and highlights each word as it is spoken. The default voice is eSpeak NG's Ancient Greek, run in the browser as WebAssembly (`app/public/espeak/`, about 1.7 MB loaded on first use): reconstructed pronunciation with vowel length, aspirates and pitch accent, mechanical in timbre. Progress › Settings switches to the device's Modern Greek voice, which sounds natural but uses modern pronunciation, and sets the speed.
 - **Progress** shows words known, the share of each text you can read, reviews due and which patterns are being re-glossed.
 
 ## What is not done
@@ -60,3 +61,4 @@ The generated `app/public/data/` is committed, so the app runs without the pipel
 - **Glosses are English only.** The only open short-definition lexicon is Logeion's English one. The data model and the translation script take a language parameter; an Italian gloss list would slot in.
 - **The LLM structure check for automatically parsed texts** (the design's fallback for texts without a treebank) is not built; Lucian uses the GLAUx automatic parse as is, marked in the UI.
 - **Dialogues of the Dead 14** has a speaker mislabelled in the source (φιλόσοφος for Philip).
+- **The voice is eSpeak NG, GPL-3.0.** It ships as a separate file under `app/public/espeak/` with its licence; the app's own code does not link to it. A neural voice fed with phonemes would sound better and is the natural next step (see docs/DESIGN.md).

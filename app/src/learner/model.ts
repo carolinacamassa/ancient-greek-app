@@ -40,6 +40,8 @@ export interface Settings {
   model: string;
   glossMode: 'auto' | 'all' | 'none';
   showAutoParseWarning: boolean;
+  voice: 'espeak' | 'system';   // reconstructed pronunciation (eSpeak NG) or the browser's Modern Greek voice
+  speechRate: number;           // 0.5 .. 1.5
 }
 
 export interface LearnerState {
@@ -60,7 +62,7 @@ const KEY = 'greek-reader-learner-v1';
 function empty(): LearnerState {
   return {
     v: 1, lemmas: {}, patterns: [], read: {}, constructionCounts: {}, notesShown: {}, cloze: [],
-    tapsInPassage: {}, settings: { apiKey: '', model: 'claude-opus-5-5', glossMode: 'auto', showAutoParseWarning: true },
+    tapsInPassage: {}, settings: { apiKey: '', model: 'claude-opus-5-5', glossMode: 'auto', showAutoParseWarning: true, voice: 'espeak', speechRate: 0.9 },
     events: 0,
   };
 }

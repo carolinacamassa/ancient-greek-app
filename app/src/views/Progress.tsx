@@ -70,6 +70,16 @@ export function Progress() {
             <option value="none">never show glosses</option>
           </select>
         </label>
+        <label className="field">Read-aloud voice
+          <select value={st.settings.voice} onChange={(e) => updateSettings({ voice: e.target.value as 'espeak' | 'system' })}>
+            <option value="espeak">reconstructed pronunciation (eSpeak NG, offline)</option>
+            <option value="system">this device's Modern Greek voice</option>
+          </select>
+        </label>
+        <p className="small muted">The reconstructed voice keeps vowel length, the aspirates θ φ χ and the pitch accent, and says η, ει, ι, υ differently; it sounds mechanical. The device voice sounds natural but uses modern pronunciation, and only exists if a Greek voice is installed.</p>
+        <label className="field">Reading speed: {st.settings.speechRate.toFixed(2)}×
+          <input type="range" min="0.5" max="1.5" step="0.05" value={st.settings.speechRate} onChange={(e) => updateSettings({ speechRate: Number(e.target.value) })} style={{ width: '100%' }} />
+        </label>
         <label className="field">Anthropic API key (optional, for grading your translations; stored only in this browser)
           <input type="password" value={st.settings.apiKey} onChange={(e) => updateSettings({ apiKey: e.target.value.trim() })} placeholder="sk-ant-…" autoComplete="off" />
         </label>

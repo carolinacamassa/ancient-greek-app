@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { sentenceText, speak, tokenAt, type Handle } from '../speech';
 import { useData, useTextDoc } from '../data/context';
 import { NOTES, type GrammarNote } from '../content/grammar';
 import { detect } from '../greek/constructions';
@@ -24,6 +25,35 @@ function PassageView({ doc, p, index }: { doc: TextDoc; p: Passage; index: numbe
   const [sel, setSel] = useState<{ s: number; t: number } | null>(null);
   const [openSentence, setOpenSentence] = useState<number | null>(null);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const [speaking, setSpeaking] = useState<{ s: number; t: number; loading?: boolean } | null>(null);
+  const [speechError, setSpeechError] = useState<string | null>(null);
+  const handle = useRef<Handle | null>(null);
+  useEffect(() => () => { handle.current?.stop(); }, []);
+
+  async function play(si: number) {
+    if (speaking?.s === si) { handle.current?.stop(); handle.current = null; setSpeaking(null); return; }
+    handle.current?.stop();
+    const s = p.s[si];
+    const forms = s.t.map((t) => t.f);
+    const punct = (f: string) => /^[\s.,;:·\-—–()[\]"'«»‘’“”…!?]+$/.test(f);
+    const { text, starts } = sentenceText(forms, punct);
+    setSpeechError(null);
+    setSpeaking({ s: si, t: -1, loading: true });
+    try {
+      handle.current = await speak(st.settings.voice, text, {
+        rate: st.settings.speechRate,
+        onWord: (pos) => setSpeaking({ s: si, t: tokenAt(starts, forms, pos, punct) }),
+        onEnd: () => { handle.current = null; setSpeaking((cur) => (cur?.s === si ? null : cur)); },
+        onError: (m) => setSpeechError(m),
+      });
+      setSpeaking((cur) => (cur?.s === si && cur.loading ? { s: si, t: -1 } : cur));
+    } catch (e) {
+      setSpeaking(null);
+      setSpeechError(st.settings.voice === 'espeak'
+        ? `The reconstructed voice could not be loaded (${String(e)}). Switch to the system voice in Progress › Settings.`
+        : String(e));
+    }
+  }
 
   // constructions per sentence, and the notes whose threshold is crossed within this passage
   const hits = useMemo(() => p.s.map((s) => detect(s)), [p]);
@@ -112,6 +142,7 @@ function PassageView({ doc, p, index }: { doc: TextDoc; p: Passage; index: numbe
               s={s} si={si} open={openSentence === si} sel={sel?.s === si ? sel.t : null}
               glossOf={glossOf} onTap={onTap} onToggle={() => { setOpenSentence(openSentence === si ? null : si); setSel(null); }}
               visible={(t) => glossVisible(st, t)} hitTokens={noteAt.has(si) ? new Set(noteAt.get(si)!.flatMap((x) => x.tokens)) : undefined}
+              speaking={speaking?.s === si ? speaking : null} onPlay={() => play(si)}
             />
             {noteAt.get(si)?.filter((x) => !dismissed.has(x.note.id)).map((x) => (
               <NoteCard key={x.note.id} note={x.note} sentence={s} tokens={x.tokens} onDismiss={() => { markNoteShown(x.note.id); setDismissed(new Set([...dismissed, x.note.id])); }} />
@@ -120,6 +151,7 @@ function PassageView({ doc, p, index }: { doc: TextDoc; p: Passage; index: numbe
         ))}
       </div>
 
+      {speechError && <p className="error small" style={{ fontFamily: 'var(--ui)' }}>{speechError}</p>}
       <div className="card" style={{ fontFamily: 'var(--ui)' }}>
         <p className="small muted" style={{ marginTop: 0 }}>
           {done ? 'You have read this passage. Reading it again does not change what the app believes you know; the quiz does.' :
@@ -144,18 +176,22 @@ function PassageView({ doc, p, index }: { doc: TextDoc; p: Passage; index: numbe
 function SentenceView(props: {
   s: Sentence; si: number; open: boolean; sel: number | null; glossOf: (t: Token) => string;
   visible: (t: Token) => boolean; onTap: (si: number, ti: number) => void; onToggle: () => void; hitTokens?: Set<number>;
+  speaking: { t: number; loading?: boolean } | null; onPlay: () => void;
 }) {
-  const { s, si, open, sel, glossOf, visible, onTap, onToggle, hitTokens } = props;
+  const { s, si, open, sel, glossOf, visible, onTap, onToggle, hitTokens, speaking, onPlay } = props;
   return (
     <div className={`sentence${open ? ' open' : ''}`}>
       <button className="handle" onClick={onToggle} title="Sentence structure and translation" aria-label="Sentence structure">¶</button>
+      <button className={`handle play${speaking ? ' on' : ''}`} onClick={onPlay} title={speaking ? 'Stop' : 'Read aloud'} aria-label={speaking ? 'Stop' : 'Read aloud'}>
+        {speaking?.loading ? '…' : speaking ? '■' : '▶'}
+      </button>
       {s.sp && <span className="speaker">{s.sp}</span>}
       {s.t.map((t, ti) => {
         const punct = isPunct(t);
         const show = !punct && (visible(t) || sel === ti);
         const g = show ? glossOf(t) : '';
         return (
-          <span key={ti} className={`tok${punct ? ' punct' : ''}${sel === ti ? ' sel' : ''}${hitTokens?.has(ti) ? ' hit' : ''}`} onClick={() => onTap(si, ti)}>
+          <span key={ti} className={`tok${punct ? ' punct' : ''}${sel === ti ? ' sel' : ''}${hitTokens?.has(ti) ? ' hit' : ''}${speaking?.t === ti ? ' speaking' : ''}`} onClick={() => onTap(si, ti)}>
             <span className="form">{t.f}</span>
             {!punct && <span className="gloss">{g || ' '}</span>}
           </span>

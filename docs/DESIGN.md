@@ -56,3 +56,5 @@ The first two or three weeks are slow, because you rely on glosses for almost ev
 **Construction detectors** run over the dependency tree in the browser. The same detectors drive the grammar-note triggers, the highlighted example sentences, and the agreement and reference quiz items.
 
 **Learner model** (app/src/learner/model.ts): a strength per lemma, read-without-tap +1 per passage, tap −2, quiz ±2, known at 4; pattern reveals as postag wildcard masks with an expiry; cloze items with a short spaced schedule (1, 3, 8, 20 days, then retired); construction counts for note triggers.
+
+**Read aloud.** Each sentence has a play button. Synthesis happens in the browser with eSpeak NG compiled to WebAssembly (the `grc` voice: reconstructed pronunciation), trimmed to the Greek data files (`pipeline/tools/strip_espeak.py` rebuilds the package from the npm build). eSpeak reports word boundaries with audio offsets, which drive the highlighting. The engine is behind a small interface in `app/src/speech/`, with the browser's own Modern Greek voice as the second engine; a neural voice given IPA from a rule-based converter would plug in the same way.
