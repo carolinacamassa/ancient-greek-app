@@ -43,7 +43,9 @@ export function loadEspeak(): Promise<EspeakWorker> {
   if (!espeakPromise) {
     espeakPromise = (async () => {
       const mod = await import(/* @vite-ignore */ assetUrl('espeak-ng.js'));
-      const m: EspeakModule = await mod.default({ locateFile: (p: string) => assetUrl(p) });
+      // the data package is named .wasm because static hosts serve that type without fuss;
+      // the loader only reads its bytes
+      const m: EspeakModule = await mod.default({ locateFile: (p: string) => assetUrl(p === 'espeak-ng.data' ? 'espeak-ng.data.wasm' : p) });
       const w = new m.eSpeakNGWorker();
       if (w.set_voice('grc') !== 0) throw new Error('Ancient Greek voice not found in the eSpeak package');
       return w;

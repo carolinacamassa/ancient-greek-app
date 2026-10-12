@@ -20,7 +20,10 @@ for f, s, e in keep:
     out += data[s:e]
 new_meta = "loadPackage({files:[" + ",".join(table) + f"],remote_package_size:{len(out)}}})"
 js2 = js[:m.start()] + new_meta + js[m.end():]
+# the package is served as .wasm so that static hosts (and the artifact host) serve it;
+# the loader only reads its bytes, the name is immaterial to it
+js2 = js2.replace('var REMOTE_PACKAGE_BASE="espeak-ng.data";', 'var REMOTE_PACKAGE_BASE="espeak-ng.data.wasm";')
 Path("dist").mkdir(exist_ok=True)
 (Path("dist") / "espeak-ng.js").write_text(js2, encoding="utf-8")
-(Path("dist") / "espeak-ng.data").write_bytes(out)
+(Path("dist") / "espeak-ng.data.wasm").write_bytes(out)
 print("stripped package:", len(out)//1024, "KB; js", len(js2.encode())//1024, "KB")
