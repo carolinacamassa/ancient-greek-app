@@ -2,12 +2,13 @@
 as a phoneme string a neural voice can read.
 
 The inventory is chosen to fit a German-trained voice, which is the closest
-natural carrier for this pronunciation: aspirated stops (θ φ χ = tʰ pʰ kʰ,
-written t h / p h / k h), long and short vowels, ü for υ, h for the rough
-breathing. The pitch accent is rendered as stress on the accented syllable.
+natural carrier for this pronunciation: long and short vowels, ü for υ, h for
+the rough breathing, ei/ou as long e/u, and the school values t f ch for
+θ φ χ (see the note at CONS). The pitch accent is rendered as stress on the
+accented syllable.
 
     >>> to_ipa("ἄνθρωπος")
-    'ˈantʰrɔːpɔs' (with the h written as a separate symbol)
+    'ˈantrɔːpɔs'
 """
 from __future__ import annotations
 
@@ -22,9 +23,14 @@ VOWELS = set("αεηιουω")
 SHORT = {"α": "a", "ε": "ɛ", "η": "ɛː", "ι": "i", "ο": "ɔ", "υ": "y", "ω": "ɔː"}
 LONG = {"α": "aː", "ε": "ɛ", "η": "ɛː", "ι": "iː", "ο": "ɔ", "υ": "yː", "ω": "ɔː"}
 DIPH = {"αι": "aɪ", "ει": "eː", "οι": "ɔɪ", "υι": "yː", "αυ": "aʊ", "ευ": "ɛʊ", "ηυ": "ɛːʊ", "ου": "uː", "ωυ": "ɔːʊ"}
-CONS = {"β": "b", "γ": "ɡ", "δ": "d", "ζ": "zd", "θ": "th", "κ": "k", "λ": "l", "μ": "m", "ν": "n",
-        "ξ": "ks", "π": "p", "ρ": "r", "σ": "s", "ς": "s", "τ": "t", "φ": "ph", "χ": "kh", "ψ": "ps"}
-PUNCT = {".": ".", ",": ",", "·": ",", ";": "?", "!": "!", "?": "?", ":": ",", "—": ",", "–": ","}
+# θ φ χ: the aspirated stops of the reconstruction (tʰ pʰ kʰ) have no
+# equivalent in the carrier voice, and spelling them as stop + h produced
+# clusters it could not say. The school pronunciation used by Italian and
+# German classicists (t, f, ch) is intelligible and is what most learners
+# will hear in a classroom anyway.
+CONS = {"β": "b", "γ": "ɡ", "δ": "d", "ζ": "dz", "θ": "t", "κ": "k", "λ": "l", "μ": "m", "ν": "n",
+        "ξ": "ks", "π": "p", "ρ": "r", "σ": "s", "ς": "s", "τ": "t", "φ": "f", "χ": "x", "ψ": "ps"}
+PUNCT = {".": ".", ",": ",", "·": ".", ";": "?", "!": "!", "?": "?", ":": ".", "—": ",", "–": ","}
 
 
 def _letters(word: str):

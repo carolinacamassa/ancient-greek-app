@@ -33,7 +33,7 @@ from greek_ipa import word_to_ipa, PUNCT
 
 AUDIO = ROOT / "app" / "public" / "audio"
 VOICE = SOURCES / "voices" / "de-thorsten-low.onnx"
-GAP_MS = 350          # silence between sentences inside a passage file
+GAP_MS = 550          # silence between sentences inside a passage file
 LEAD_MS = 60          # MP3 encoder delay compensation when seeking
 BITRATE = 32
 
