@@ -99,13 +99,59 @@ def word_to_ipa(word: str) -> str:
     return "".join(out)
 
 
-def to_ipa(text: str) -> str:
+# ---------------------------------------------------------------------------
+# Italian scheme: the pronuncia scolastica of an Italian liceo, written in the
+# symbols eSpeak uses for Italian (a e ɛ i o ɔ u; no h, no ü, no vowel length).
+#   ε e, η ɛ, ο o, ω ɔ, υ i, ει ei, ου u, θ t, φ f, χ k, ζ dz, breathings silent,
+#   accent as stress, double consonants kept as Italian geminates.
+IT_SHORT = {"α": "a", "ε": "e", "η": "ɛ", "ι": "i", "ο": "o", "υ": "i", "ω": "ɔ"}
+IT_DIPH = {"αι": "aj", "ει": "ei", "οι": "ɔi", "υι": "ui", "αυ": "aʊ", "ευ": "eʊ", "ηυ": "ɛʊ", "ου": "u", "ωυ": "ɔʊ"}
+IT_CONS = {"β": "b", "γ": "ɡ", "δ": "d", "ζ": "dz", "θ": "t", "κ": "k", "λ": "l", "μ": "m", "ν": "n",
+           "ξ": "ks", "π": "p", "ρ": "r", "σ": "s", "ς": "s", "τ": "t", "φ": "f", "χ": "k", "ψ": "ps"}
+
+
+def word_to_ipa_it(word: str) -> str:
+    L = _letters(word)
+    out: list[str] = []
+    i = 0
+    while i < len(L):
+        ch, marks = L[i]
+        if ch in VOWELS:
+            stressed = bool(marks & ACCENTS)
+            nucleus = None
+            if i + 1 < len(L):
+                nch, nmarks = L[i + 1]
+                pair = ch + nch
+                if pair in IT_DIPH and DIAER not in nmarks and not (marks & (ACCENTS | {ROUGH, SMOOTH})):
+                    nucleus = IT_DIPH[pair]
+                    stressed = stressed or bool(nmarks & ACCENTS)
+                    i += 1
+            if nucleus is None:
+                nucleus = IT_SHORT[ch]
+            if stressed:
+                out.append("ˈ")
+            out.append(nucleus)
+        elif ch in IT_CONS:
+            c = IT_CONS[ch]
+            if ch == "γ" and i + 1 < len(L) and L[i + 1][0] in "γκχξ":
+                c = "ŋ"
+            # a doubled consonant is an Italian geminate: keep both letters
+            out.append(c)
+        i += 1
+    return "".join(out)
+
+
+SCHEMES = {"de": word_to_ipa, "it": word_to_ipa_it}
+
+
+def to_ipa(text: str, scheme: str = "de") -> str:
+    conv = SCHEMES[scheme]
     parts = []
-    for tok in re.findall(r"[\ẁ-ͯἀ-῿'ʼ’᾽]+|[.,;·!?:—–]", unicodedata.normalize("NFD", text)):
+    for tok in re.findall(r"[\w\u0300-\u036f\u1f00-\u1fff'ʼ’᾽]+|[.,;·!?:—–]", unicodedata.normalize("NFD", text)):
         if tok in PUNCT:
             parts.append(PUNCT[tok])
         else:
-            w = word_to_ipa(tok.strip("'ʼ’᾽"))
+            w = conv(tok.strip("'ʼ’᾽"))
             if w:
                 parts.append(w)
     s = " ".join(parts)
@@ -114,4 +160,4 @@ def to_ipa(text: str) -> str:
 
 if __name__ == "__main__":
     for w in ["ἄνθρωπος", "ἒ ψιλόν", "Ὑπὸ τῶν κακῶν τὰ ἀγαθὰ ἐδιώχθη ὡς ἀσθενῆ ὄντα.", "φιλοσοφία", "οὐρανός", "ῥήτωρ", "ἄγγελος", "Ζεύς", "ᾄδω", "εὐθύς", "ψυχή", "χαῖρε, ὦ Σώκρατες·", "τί φῄς;", "χρόνος", "ἔχω", "πατρός"]:
-        print(w, "->", to_ipa(w))
+        print(w, "->", to_ipa(w), "|", to_ipa(w, "it"))
