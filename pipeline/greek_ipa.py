@@ -1,14 +1,17 @@
-"""Ancient Greek spelling -> IPA in the reconstructed (Erasmian-type) pronunciation,
-as a phoneme string a neural voice can read.
+"""Ancient Greek spelling -> phoneme string for the read-aloud voice.
 
-The inventory is chosen to fit a German-trained voice, which is the closest
-natural carrier for this pronunciation: long and short vowels, ü for υ, h for
-the rough breathing, ei/ou as long e/u, and the school values t f ch for
-θ φ χ (see the note at CONS). The pitch accent is rendered as stress on the
-accented syllable.
+The voice is Piper's German model, which learned exactly the symbols eSpeak
+produces for German, so the output here is written in that inventory and
+with eSpeak's conventions (stress mark immediately before the vowel, short
+and long vowels as German has them: ɪ ʏ ɔ ɛ a / iː yː oː ɛː ɑː uː eː).
+
+Pronunciation: the school pronunciation of Italian and German classrooms.
+  η ɛː, ω oː, ει eː, ου uː, υ ʏ/yː, θ t, φ f, χ ch (x/ç), ζ dz, rough
+  breathing h, accent as stress. (Aspirated tʰ pʰ kʰ, which the voice cannot
+  say, are deliberately not attempted.)
 
     >>> to_ipa("ἄνθρωπος")
-    'ˈantrɔːpɔs'
+    'ˈantroːpɔs'
 """
 from __future__ import annotations
 
@@ -19,22 +22,19 @@ SMOOTH, ROUGH = "̓", "̔"
 ACUTE, GRAVE, CIRC = "́", "̀", "͂"
 SUB, DIAER, MACRON, BREVE = "ͅ", "̈", "̄", "̆"
 MARKS = {SMOOTH, ROUGH, ACUTE, GRAVE, CIRC, SUB, DIAER, MACRON, BREVE}
+ACCENTS = {ACUTE, GRAVE, CIRC}
 VOWELS = set("αεηιουω")
-SHORT = {"α": "a", "ε": "ɛ", "η": "ɛː", "ι": "i", "ο": "ɔ", "υ": "y", "ω": "ɔː"}
-LONG = {"α": "aː", "ε": "ɛ", "η": "ɛː", "ι": "iː", "ο": "ɔ", "υ": "yː", "ω": "ɔː"}
-DIPH = {"αι": "aɪ", "ει": "eː", "οι": "ɔɪ", "υι": "yː", "αυ": "aʊ", "ευ": "ɛʊ", "ηυ": "ɛːʊ", "ου": "uː", "ωυ": "ɔːʊ"}
-# θ φ χ: the aspirated stops of the reconstruction (tʰ pʰ kʰ) have no
-# equivalent in the carrier voice, and spelling them as stop + h produced
-# clusters it could not say. The school pronunciation used by Italian and
-# German classicists (t, f, ch) is intelligible and is what most learners
-# will hear in a classroom anyway.
+SHORT = {"α": "a", "ε": "ɛ", "η": "ɛː", "ι": "ɪ", "ο": "ɔ", "υ": "ʏ", "ω": "oː"}
+LONG = {"α": "ɑː", "ε": "ɛ", "η": "ɛː", "ι": "iː", "ο": "ɔ", "υ": "yː", "ω": "oː"}
+DIPH = {"αι": "aɪ", "ει": "eː", "οι": "ɔø", "υι": "yːɪ", "αυ": "aʊ", "ευ": "ɔø", "ηυ": "ɔø", "ου": "uː", "ωυ": "oːʊ"}
 CONS = {"β": "b", "γ": "ɡ", "δ": "d", "ζ": "dz", "θ": "t", "κ": "k", "λ": "l", "μ": "m", "ν": "n",
         "ξ": "ks", "π": "p", "ρ": "r", "σ": "s", "ς": "s", "τ": "t", "φ": "f", "χ": "x", "ψ": "ps"}
 PUNCT = {".": ".", ",": ",", "·": ".", ";": "?", "!": "!", "?": "?", ":": ".", "—": ",", "–": ","}
+FRONT = set("ɛɪɛːiːeːʏyːaɪɔø")   # after these (and consonants) German says ç, not x
+BACK_END = {"a", "ɑ", "ɔ", "o", "u", "ʊ", "ʊ"}
 
 
 def _letters(word: str):
-    """Split an NFD word into (base, set_of_marks)."""
     out = []
     for ch in unicodedata.normalize("NFD", word):
         if unicodedata.combining(ch) or ch in MARKS:
@@ -47,57 +47,65 @@ def _letters(word: str):
 
 def word_to_ipa(word: str) -> str:
     L = _letters(word)
-    syl: list[dict] = []          # {onset: str, nucleus: str, stressed: bool, h: bool}
-    pending_onset = ""
+    units: list[tuple[str, str]] = []   # ("C", phones) or ("V", phones) or ("S", "ˈ") or ("H", "h")
     i = 0
     while i < len(L):
         ch, marks = L[i]
         if ch in VOWELS:
-            nucleus = None
-            stressed = bool(marks & {ACUTE, GRAVE, CIRC})
+            stressed = bool(marks & ACCENTS)
             rough = ROUGH in marks
-            # diphthong: next letter ι/υ with no diaeresis and no breathing-free accent on this vowel
+            nucleus = None
             if i + 1 < len(L):
                 nch, nmarks = L[i + 1]
                 pair = ch + nch
-                if pair in DIPH and DIAER not in nmarks and not (marks & {ACUTE, GRAVE, CIRC, ROUGH, SMOOTH}):
+                if pair in DIPH and DIAER not in nmarks and not (marks & (ACCENTS | {ROUGH, SMOOTH})):
                     nucleus = DIPH[pair]
-                    stressed = stressed or bool(nmarks & {ACUTE, GRAVE, CIRC})
+                    stressed = stressed or bool(nmarks & ACCENTS)
                     rough = rough or ROUGH in nmarks
                     i += 1
             if nucleus is None:
                 long = CIRC in marks or MACRON in marks or SUB in marks
                 nucleus = (LONG if long else SHORT)[ch]
-            syl.append({"onset": pending_onset, "nucleus": nucleus, "stressed": stressed, "h": rough})
-            pending_onset = ""
+            if rough:
+                units.append(("H", "h"))
+            if stressed:
+                units.append(("S", "ˈ"))
+            units.append(("V", nucleus))
         elif ch in CONS:
             c = CONS[ch]
             if ch == "γ" and i + 1 < len(L) and L[i + 1][0] in "γκχξ":
                 c = "ŋ"
             if ch == "ρ" and ROUGH in marks:
-                c = "rh"
-            pending_onset += c
+                units.append(("C", "r"))
+                units.append(("H", "h"))
+                i += 1
+                continue
+            units.append(("C", c))
         i += 1
-    if not syl:
-        return ""
-    if pending_onset:  # final consonants
-        syl[-1]["coda"] = pending_onset
-    # a word with no accent mark (enclitics, proclitics): no stress
+    # context rules: χ as x after back vowels, ç otherwise; ρ as ɾ after a consonant or in a coda
     out = []
-    for s in syl:
-        out.append(("ˈ" if s["stressed"] else "") + ("h" if s["h"] else "") + s["onset"] + s["nucleus"] + s.get("coda", ""))
+    for k, (kind, ph) in enumerate(units):
+        if kind == "C" and ph == "x":
+            prev = next((u[1] for u in reversed(units[:k]) if u[0] == "V"), "").rstrip("ː")
+            after_cons = k > 0 and units[k - 1][0] == "C"
+            if after_cons or not prev or prev[-1] not in BACK_END:
+                ph = "ç"
+        if kind == "C" and ph == "r":
+            after_cons = k > 0 and units[k - 1][0] == "C"
+            nxt = next((u[0] for u in units[k + 1:] if u[0] not in ("S", "H")), None)
+            if after_cons or nxt != "V":
+                ph = "ɾ"
+        out.append(ph)
     return "".join(out)
 
 
 def to_ipa(text: str) -> str:
-    """Whole sentence -> phoneme string with spaces between words and
-    punctuation kept as Piper's pause symbols."""
     parts = []
-    for tok in re.findall(r"[\ẁ-ͯἀ-῿']+|[.,;·!?:—–]", unicodedata.normalize("NFD", text)):
+    for tok in re.findall(r"[\ẁ-ͯἀ-῿'ʼ’᾽]+|[.,;·!?:—–]", unicodedata.normalize("NFD", text)):
         if tok in PUNCT:
             parts.append(PUNCT[tok])
         else:
-            w = word_to_ipa(tok.strip("'ʼ’"))
+            w = word_to_ipa(tok.strip("'ʼ’᾽"))
             if w:
                 parts.append(w)
     s = " ".join(parts)
@@ -105,5 +113,5 @@ def to_ipa(text: str) -> str:
 
 
 if __name__ == "__main__":
-    for w in ["ἄνθρωπος", "Ὑπὸ τῶν κακῶν τὰ ἀγαθὰ ἐδιώχθη ὡς ἀσθενῆ ὄντα.", "φιλοσοφία", "οὐρανός", "ῥήτωρ", "ἄγγελος", "Ζεύς", "ᾄδω", "εὐθύς", "ψυχή", "χαῖρε, ὦ Σώκρατες·", "τί φῄς;"]:
+    for w in ["ἄνθρωπος", "ἒ ψιλόν", "Ὑπὸ τῶν κακῶν τὰ ἀγαθὰ ἐδιώχθη ὡς ἀσθενῆ ὄντα.", "φιλοσοφία", "οὐρανός", "ῥήτωρ", "ἄγγελος", "Ζεύς", "ᾄδω", "εὐθύς", "ψυχή", "χαῖρε, ὦ Σώκρατες·", "τί φῄς;", "χρόνος", "ἔχω", "πατρός"]:
         print(w, "->", to_ipa(w))
