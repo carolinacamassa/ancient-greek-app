@@ -60,21 +60,14 @@ def fetch(url: str, dest: Path, force: bool = False) -> None:
             f.write(chunk)
 
 
-VOICE_URL = "https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-de-thorsten-low.tar.gz"
+VOICE_BASE = "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/it/it_IT/paola/medium"
+VOICE_FILES = ["it_IT-paola-medium.onnx", "it_IT-paola-medium.onnx.json", "MODEL_CARD"]
 
 
 def fetch_voice(force: bool = False) -> None:
-    """The Piper voice used by audio.py (58 MB). Extracted to sources/voices/."""
-    import tarfile
-    dest = SOURCES / "voices"
-    if (dest / "de-thorsten-low.onnx").exists() and not force:
-        print("  have   voices/de-thorsten-low.onnx")
-        return
-    tar = SOURCES / "voices" / "voice-de-thorsten-low.tar.gz"
-    fetch(VOICE_URL, tar, force)
-    with tarfile.open(tar) as t:
-        t.extractall(dest, filter="data")
-    tar.unlink()
+    """The Piper voice used by audio.py (63 MB), into sources/voices/."""
+    for f in VOICE_FILES:
+        fetch(f"{VOICE_BASE}/{f}", SOURCES / "voices" / f, force)
 
 
 def main(argv: list[str]) -> int:

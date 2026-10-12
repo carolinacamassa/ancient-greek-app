@@ -39,4 +39,4 @@ Perseus translations are CC BY-SA 3.0 as distributed by the Perseus Digital Libr
 
 ## Voice
 
-Read-aloud audio is generated with [Piper](https://github.com/rhasspy/piper) (MIT) and its German voice `de_DE-thorsten-low` (model MIT; dataset [Thorsten-Voice](https://github.com/thorstenMueller/Thorsten-Voice), CC0), downloaded by `fetch.py` from the Piper v0.0.2 release. The generated MP3s in `app/public/audio/` are derived from the texts above and the voice, and carry the texts' licences.
+Read-aloud audio is generated with [Piper](https://github.com/rhasspy/piper) (MIT) and its Italian voice `it_IT-paola-medium` (model from [rhasspy/piper-voices](https://huggingface.co/rhasspy/piper-voices); dataset [Voice-Dataset-Italian](https://huggingface.co/datasets/paolapersico1/Voice-Dataset-Italian), licence as stated there), downloaded by `fetch.py`. The generated MP3s in `app/public/audio/` are derived from the texts above and the voice, and carry the texts' licences.

@@ -72,11 +72,11 @@ export function Progress() {
         </label>
         <label className="field">Read-aloud voice
           <select value={st.settings.voice} onChange={(e) => updateSettings({ voice: e.target.value as 'recorded' | 'system' })}>
-            <option value="recorded">recorded, reconstructed pronunciation</option>
+            <option value="recorded">recorded, Italian school pronunciation</option>
             <option value="system">this device's Modern Greek voice</option>
           </select>
         </label>
-        <p className="small muted">The recordings are a neural voice reading the texts in the school pronunciation (long η and ω, ου as long u, υ as ü, θ φ χ as t f ch, rough breathing as h, accent as stress). The device voice uses modern pronunciation and only exists if a Greek voice is installed.</p>
+        <p className="small muted">The recordings are an Italian neural voice reading the texts the way an Italian liceo does (η and ω open, ει as ei, ου as u, υ as i, θ φ χ as t f k, breathings silent, accent as stress). The device voice uses modern pronunciation and only exists if a Greek voice is installed.</p>
         <label className="field">Reading speed: {st.settings.speechRate.toFixed(2)}× <span className="muted">(pitch is kept)</span>
           <input type="range" min="0.6" max="1.3" step="0.05" value={st.settings.speechRate} onChange={(e) => updateSettings({ speechRate: Number(e.target.value) })} style={{ width: '100%' }} />
         </label>

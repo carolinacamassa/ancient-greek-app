@@ -36,7 +36,7 @@ export function Alphabet() {
       <div className="topbar"><a className="crumb" href={href({ name: 'grammar' })}>‹ Grammar</a></div>
       <h1>Alphabet and pronunciation</h1>
       <p className="muted">
-        Twenty-four letters, seven vowels (α ε η ι ο υ ω), no letter for h. The sounds given are the ones the recordings use, the school pronunciation of Italian and German classrooms; where classical Attic differed, the entry says so. Press a name or a word to hear it.
+        Twenty-four letters, seven vowels (α ε η ι ο υ ω), no letter for h. The sounds given are the ones the recordings use, the pronunciation of an Italian liceo; where classical Attic differed, the entry says so. Press a name or a word to hear it.
       </p>
       {err && <p className="error small">{err}</p>}
       <p className="small muted">The tag beside each name is the Latin transliteration, what Latin writers used for Greek loanwords and names, which is why ph, th, ch, y, ae and oe look the way they do.</p>

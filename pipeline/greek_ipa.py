@@ -144,7 +144,11 @@ def word_to_ipa_it(word: str) -> str:
 SCHEMES = {"de": word_to_ipa, "it": word_to_ipa_it}
 
 
-def to_ipa(text: str, scheme: str = "de") -> str:
+def word_ipa(word: str, scheme: str = "it") -> str:
+    return SCHEMES[scheme](word)
+
+
+def to_ipa(text: str, scheme: str = "it") -> str:
     conv = SCHEMES[scheme]
     parts = []
     for tok in re.findall(r"[\w\u0300-\u036f\u1f00-\u1fff'ʼ’᾽]+|[.,;·!?:—–]", unicodedata.normalize("NFD", text)):

@@ -1,9 +1,9 @@
 """Generate read-aloud audio for every sentence of the corpus.
 
-Voice: Piper's German "thorsten" neural voice, driven by our own phoneme
-transcription of the Greek (greek_ipa.py), so it reads the reconstructed
-pronunciation. One MP3 per passage, plus an index per text with each
-sentence's offset and estimated word start times.
+Voice: Piper's Italian "paola" neural voice, driven by our own phoneme
+transcription of the Greek (greek_ipa.py, Italian scheme), so it reads the
+way an Italian liceo does. One MP3 per passage, plus an index per text with
+each sentence's offset and estimated word start times.
 
 Output:
   app/public/audio/<text>/<passage ref>.mp3
@@ -13,9 +13,9 @@ Output:
   (w has one entry per non-punctuation token, in order)
 
 Requirements: pip install onnxruntime numpy lameenc; the voice files come
-from fetch.py (pipeline/sources/voices/de-thorsten-low.onnx + .json).
+from fetch.py (pipeline/sources/voices/it_IT-paola-medium.onnx + .json).
 
-Usage: python3 pipeline/audio.py [text-id ...] [--speed 1.35] [--force]
+Usage: python3 pipeline/audio.py [text-id ...] [--speed 1.25] [--force] [--alphabet]
 """
 from __future__ import annotations
 
@@ -29,10 +29,12 @@ from pathlib import Path
 import numpy as np
 
 from common import OUT, SOURCES, ROOT, is_punct
-from greek_ipa import word_to_ipa, to_ipa, PUNCT
+from greek_ipa import word_ipa, to_ipa, PUNCT
 
 AUDIO = ROOT / "app" / "public" / "audio"
-VOICE = SOURCES / "voices" / "de-thorsten-low.onnx"
+VOICE = SOURCES / "voices" / "it_IT-paola-medium.onnx"
+SCHEME = "it"
+NOISE, NOISE_W = 0.4, 0.5   # less of the reader's breathiness than Piper's default 0.667 / 0.8
 GAP_MS = 550          # silence between sentences inside a passage file
 LEAD_MS = 60          # MP3 encoder delay compensation when seeking
 BITRATE = 32
@@ -40,13 +42,19 @@ BITRATE = 32
 # relative durations for estimating word boundaries inside a sentence
 W_VOWEL, W_LONG, W_CONS, W_H, W_SPACE, W_PUNCT = 1.0, 0.6, 0.5, 0.3, 0.35, 1.4
 VOWEL_CHARS = set("aɛeiɔouyɪʊ")
+TAIL_THRESHOLD = 0.02       # trailing near-silence (and breath noise) is cut; the start is kept
+
+
+SAMPLE_RATE = 22050
 
 
 def load_voice():
+    global SAMPLE_RATE
     import onnxruntime as ort
-    cfg = json.loads(VOICE.with_suffix(".onnx.json").read_text(encoding="utf-8"))
+    cfg = json.loads(Path(str(VOICE) + ".json").read_text(encoding="utf-8"))
     sess = ort.InferenceSession(str(VOICE), providers=["CPUExecutionProvider"])
-    return sess, cfg["phoneme_id_map"], cfg["audio"]["sample_rate"]
+    SAMPLE_RATE = cfg["audio"]["sample_rate"]
+    return sess, cfg["phoneme_id_map"], SAMPLE_RATE
 
 
 def weight(ch: str) -> float:
@@ -77,7 +85,7 @@ def sentence_phonemes(tokens: list[dict]) -> tuple[str, list[int]]:
             if p and ipa and not ipa.endswith(p):
                 ipa += p
             continue
-        w = word_to_ipa(f.strip("'ʼ’"))
+        w = word_ipa(f.strip("'ʼ’᾽"), SCHEME)
         if not w:
             w = "ɛ"  # unreadable token (numbers, symbols): a short filler
         if ipa and not ipa.endswith(" "):
@@ -98,9 +106,13 @@ def synth(sess, pmap, ipa: str, speed: float) -> np.ndarray:
     out = sess.run(None, {
         "input": np.array([ids], dtype=np.int64),
         "input_lengths": np.array([len(ids)], dtype=np.int64),
-        "scales": np.array([0.667, speed, 0.8], dtype=np.float32),
+        "scales": np.array([NOISE, speed, NOISE_W], dtype=np.float32),
     })[0]
-    return np.clip(out.squeeze(), -1, 1)
+    audio = np.clip(out.squeeze(), -1, 1)
+    loud = np.where(np.abs(audio) > TAIL_THRESHOLD)[0]
+    if len(loud):
+        audio = audio[: min(len(audio), loud[-1] + int(0.08 * SAMPLE_RATE))]
+    return audio
 
 
 def encode_mp3(pcm: np.ndarray, rate: int) -> bytes:
@@ -166,7 +178,7 @@ def build_alphabet(speed: float) -> None:
     pos_ms = 0.0
     def add(key: str, text: str) -> None:
         nonlocal pos_ms
-        ipa = to_ipa(text)
+        ipa = to_ipa(text, SCHEME)
         audio = synth(sess, pmap, ipa, speed)
         dur = len(audio) / rate * 1000
         index[key] = {"t": round(pos_ms), "d": round(dur)}
@@ -184,7 +196,7 @@ def build_alphabet(speed: float) -> None:
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("texts", nargs="*")
-    ap.add_argument("--speed", type=float, default=1.35, help="Piper length scale; higher is slower")
+    ap.add_argument("--speed", type=float, default=1.25, help="Piper length scale; higher is slower")
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--alphabet", action="store_true", help="only the alphabet page clips")
     a = ap.parse_args(argv)
