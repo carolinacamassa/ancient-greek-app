@@ -40,8 +40,8 @@ export interface Settings {
   model: string;
   glossMode: 'auto' | 'all' | 'none';
   showAutoParseWarning: boolean;
-  voice: 'espeak' | 'system';   // reconstructed pronunciation (eSpeak NG) or the browser's Modern Greek voice
-  speechRate: number;           // 0.5 .. 1.5
+  voice: 'recorded' | 'system'; // recorded reconstructed pronunciation, or the browser's Modern Greek voice
+  speechRate: number;           // playback speed, 0.6 .. 1.3
 }
 
 export interface LearnerState {
@@ -62,7 +62,7 @@ const KEY = 'greek-reader-learner-v1';
 function empty(): LearnerState {
   return {
     v: 1, lemmas: {}, patterns: [], read: {}, constructionCounts: {}, notesShown: {}, cloze: [],
-    tapsInPassage: {}, settings: { apiKey: '', model: 'claude-opus-5-5', glossMode: 'auto', showAutoParseWarning: true, voice: 'espeak', speechRate: 0.9 },
+    tapsInPassage: {}, settings: { apiKey: '', model: 'claude-opus-5-5', glossMode: 'auto', showAutoParseWarning: true, voice: 'recorded', speechRate: 1 },
     events: 0,
   };
 }
@@ -72,7 +72,9 @@ function load(): LearnerState {
     const raw = localStorage.getItem(KEY);
     if (!raw) return empty();
     const st = JSON.parse(raw) as LearnerState;
-    return { ...empty(), ...st, settings: { ...empty().settings, ...(st.settings ?? {}) } };
+    const settings = { ...empty().settings, ...(st.settings ?? {}) };
+    if ((settings.voice as string) === 'espeak') { settings.voice = 'recorded'; settings.speechRate = 1; }
+    return { ...empty(), ...st, settings };
   } catch {
     return empty();
   }

@@ -36,3 +36,7 @@ Perseus translations are CC BY-SA 3.0 as distributed by the Perseus Digital Libr
 - GLAUx `0096-002a` (all 358 Chambry fables, automatically parsed): its source text is CC BY-NC-ND, which does not allow the derived JSON.
 - GLAUx `0096-002b` (the First1KGreek Aesop, CC BY-SA, partly Pedalion-annotated): a different recension and numbering from Chambry 1–53; could be added as "more fables" later.
 - Harrington's treebank of Lucian's *True Histories* (CC BY-SA, hand-annotated): a candidate for a hand-annotated Lucian text.
+
+## Voice
+
+Read-aloud audio is generated with [Piper](https://github.com/rhasspy/piper) (MIT) and its German voice `de_DE-thorsten-low` (model MIT; dataset [Thorsten-Voice](https://github.com/thorstenMueller/Thorsten-Voice), CC0), downloaded by `fetch.py` from the Piper v0.0.2 release. The generated MP3s in `app/public/audio/` are derived from the texts above and the voice, and carry the texts' licences.

@@ -60,10 +60,29 @@ def fetch(url: str, dest: Path, force: bool = False) -> None:
             f.write(chunk)
 
 
+VOICE_URL = "https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-de-thorsten-low.tar.gz"
+
+
+def fetch_voice(force: bool = False) -> None:
+    """The Piper voice used by audio.py (58 MB). Extracted to sources/voices/."""
+    import tarfile
+    dest = SOURCES / "voices"
+    if (dest / "de-thorsten-low.onnx").exists() and not force:
+        print("  have   voices/de-thorsten-low.onnx")
+        return
+    tar = SOURCES / "voices" / "voice-de-thorsten-low.tar.gz"
+    fetch(VOICE_URL, tar, force)
+    with tarfile.open(tar) as t:
+        t.extractall(dest, filter="data")
+    tar.unlink()
+
+
 def main(argv: list[str]) -> int:
     force = "--force" in argv
     for url, rel in FILES:
         fetch(url, SOURCES / rel, force)
+    if "--no-voice" not in argv:
+        fetch_voice(force)
     return 0
 
 

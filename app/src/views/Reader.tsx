@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { sentenceText, speak, tokenAt, type Handle } from '../speech';
+import { sentenceText, speak, tokenAtChar, tokenAtWord, type Handle } from '../speech';
 import { useData, useTextDoc } from '../data/context';
 import { NOTES, type GrammarNote } from '../content/grammar';
 import { detect } from '../greek/constructions';
@@ -40,18 +40,19 @@ function PassageView({ doc, p, index }: { doc: TextDoc; p: Passage; index: numbe
     setSpeechError(null);
     setSpeaking({ s: si, t: -1, loading: true });
     try {
-      handle.current = await speak(st.settings.voice, text, {
+      const r = await speak(st.settings.voice, {
+        textId: doc.id, passageId: p.id, sentenceId: s.id, text,
         rate: st.settings.speechRate,
-        onWord: (pos) => setSpeaking({ s: si, t: tokenAt(starts, forms, pos, punct) }),
+        onWord: (wordIndex, charStart) => setSpeaking({ s: si, t: wordIndex >= 0 ? tokenAtWord(forms, wordIndex, punct) : tokenAtChar(starts, forms, charStart, punct) }),
         onEnd: () => { handle.current = null; setSpeaking((cur) => (cur?.s === si ? null : cur)); },
         onError: (m) => setSpeechError(m),
       });
+      handle.current = r.handle;
+      if (st.settings.voice === 'recorded' && r.engine === 'system') setSpeechError('No recording for this sentence; using the device voice.');
       setSpeaking((cur) => (cur?.s === si && cur.loading ? { s: si, t: -1 } : cur));
     } catch (e) {
       setSpeaking(null);
-      setSpeechError(st.settings.voice === 'espeak'
-        ? `The reconstructed voice could not be loaded (${String(e)}). Switch to the system voice in Progress › Settings.`
-        : String(e));
+      setSpeechError(String(e));
     }
   }
 
