@@ -180,10 +180,14 @@ def build_alphabet(speed: float) -> None:
     parts: list[np.ndarray] = []
     index: dict[str, dict] = {}
     pos_ms = 0.0
+    # isolated words come out rushed at the sentence pace, so they get a slower
+    # one; ῥῶ is a two-phoneme word the voice barely articulates, a tap r helps
+    word_speed = max(speed, 2.0)
+    overrides = {"rho.name": "ɾˈɔ"}
     def add(key: str, text: str) -> None:
         nonlocal pos_ms
-        ipa = to_ipa(text, SCHEME)
-        audio = synth(sess, pmap, ipa, speed)
+        ipa = overrides.get(key) or to_ipa(text, SCHEME)
+        audio = synth(sess, pmap, ipa, word_speed)
         dur = PRE_MS + len(audio) / rate * 1000
         index[key] = {"t": round(pos_ms), "d": round(dur)}
         parts.append(pre); parts.append(audio); parts.append(gap)
