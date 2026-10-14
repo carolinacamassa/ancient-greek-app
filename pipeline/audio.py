@@ -36,7 +36,8 @@ VOICE = SOURCES / "voices" / "it_IT-paola-medium.onnx"
 SCHEME = "it"
 NOISE, NOISE_W = 0.4, 0.5   # less of the reader's breathiness than Piper's default 0.667 / 0.8
 GAP_MS = 550          # silence between sentences inside a passage file
-LEAD_MS = 60          # MP3 encoder delay compensation when seeking
+PRE_MS = 160          # silence before each clip: a seek into an MP3 lands a few dozen ms late,
+                      # and soft onsets (initial i, r) were being cut; the index points at the silence
 BITRATE = 32
 
 # relative durations for estimating word boundaries inside a sentence
@@ -143,6 +144,7 @@ def build_text(text_id: str, speed: float, force: bool) -> None:
         parts: list[np.ndarray] = []
         entry = {"f": fname, "s": {}}
         pos_ms = 0.0
+        pre = np.zeros(int(rate * PRE_MS / 1000), dtype=np.float32)
         for s in p["s"]:
             ipa, starts = sentence_phonemes(s["t"])
             audio = synth(sess, pmap, ipa, speed)
@@ -150,11 +152,12 @@ def build_text(text_id: str, speed: float, force: bool) -> None:
             weights = [weight(ch) for ch in ipa]
             cum = np.cumsum([0.0] + weights)
             total = cum[-1] or 1.0
-            words = [round(pos_ms + dur_ms * cum[i] / total) for i in starts]
-            entry["s"][s["id"]] = {"t": round(pos_ms), "d": round(dur_ms), "w": words}
+            words = [round(pos_ms + PRE_MS + dur_ms * cum[i] / total) for i in starts]
+            entry["s"][s["id"]] = {"t": round(pos_ms), "d": round(PRE_MS + dur_ms), "w": words}
+            parts.append(pre)
             parts.append(audio)
             parts.append(gap)
-            pos_ms += dur_ms + GAP_MS
+            pos_ms += PRE_MS + dur_ms + GAP_MS
         pcm = np.concatenate(parts) if parts else np.zeros(rate // 10, dtype=np.float32)
         (AUDIO / fname).write_bytes(encode_mp3(pcm, rate))
         index[p["id"]] = entry
@@ -173,6 +176,7 @@ def build_alphabet(speed: float) -> None:
     sess, pmap, rate = load_voice()
     AUDIO.mkdir(parents=True, exist_ok=True)
     gap = np.zeros(int(rate * 0.4), dtype=np.float32)
+    pre = np.zeros(int(rate * PRE_MS / 1000), dtype=np.float32)
     parts: list[np.ndarray] = []
     index: dict[str, dict] = {}
     pos_ms = 0.0
@@ -180,9 +184,9 @@ def build_alphabet(speed: float) -> None:
         nonlocal pos_ms
         ipa = to_ipa(text, SCHEME)
         audio = synth(sess, pmap, ipa, speed)
-        dur = len(audio) / rate * 1000
+        dur = PRE_MS + len(audio) / rate * 1000
         index[key] = {"t": round(pos_ms), "d": round(dur)}
-        parts.append(audio); parts.append(gap)
+        parts.append(pre); parts.append(audio); parts.append(gap)
         pos_ms += dur + 400
     for id_, greek_name, example in entries:
         if greek_name:

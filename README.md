@@ -40,7 +40,17 @@ npm install
 npm run dev                        # http://localhost:5173
 ```
 
-`npm run build` produces a static site in `app/dist/` that works from any path (GitHub Pages, a folder on a phone). All learner data lives in the browser's localStorage; Progress has export and import.
+`npm run build` produces a static site in `app/dist/` that works from any path. All learner data lives in the browser's localStorage, per device and per site address; Progress has export and import to move it.
+
+### Hosting on GitHub Pages
+
+`.github/workflows/pages.yml` builds the app and deploys `app/dist` on every push. One-time setup:
+
+1. Repository settings › Pages › Build and deployment › Source: **GitHub Actions**.
+2. The custom hostname is in `app/public/CNAME` (`greek.cleo.codes`). At the DNS provider for the domain, add a CNAME record for `greek` pointing to `carolinacamassa.github.io`.
+3. Back in settings › Pages, enter the same hostname under Custom domain and tick Enforce HTTPS once the certificate is issued (a few minutes after DNS resolves).
+
+The site is about 120 MB, mostly audio, within the Pages limits. A private repository needs a paid GitHub plan for Pages; a public one does not.
 
 The generated `app/public/data/` is committed, so the app runs without the pipeline.
 
